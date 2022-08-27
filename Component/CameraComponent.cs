@@ -1,9 +1,4 @@
-﻿using BepInEx;
-using HarmonyLib;
-
-using UnityEngine;
-using System.Reflection;
-
+﻿using UnityEngine;
 
 namespace VHVRCamera
 {
@@ -13,7 +8,6 @@ namespace VHVRCamera
         GameObject followerCameraObject;
         Transform targetTransform;
         Camera followCam;
-        Camera targetCam;
 
         private Vector3 velocity = Vector3.zero;
 
@@ -35,7 +29,7 @@ namespace VHVRCamera
             {
                 Debug.Log(camera.name);
                 if (camera.name == "Main Camera")
-                { //targetTransform = camera.transform;
+                { 
                     Debug.Log("Main Camera Found");
                     followCam.cullingMask = camera.cullingMask;
                 }
@@ -43,7 +37,6 @@ namespace VHVRCamera
             }
 
         }
-
 
 
 
@@ -64,6 +57,7 @@ namespace VHVRCamera
                     if (Player.m_localPlayer != null)
                     {
                         transform.position = Player.m_localPlayer.transform.position;
+                       // transform.position = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head).transform.position;
                     }
                 }
 
@@ -73,17 +67,6 @@ namespace VHVRCamera
                 }
             }
 
-
-        }
-
-
-        void tryassignTarget()
-        {
-            if (Player.m_localPlayer != null)
-            {
-                Debug.Log("Player Head Point: " + Player.m_localPlayer.GetHeadPoint());
-                targetTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
-            }
 
         }
 
@@ -105,10 +88,10 @@ namespace VHVRCamera
                 Debug.Log("Spec Position: " + transform.position);
                 Debug.Log("Target position : " + targetTransform.position);
 
-                
-                
 
-                Vector3 offset = new Vector3(0,0,-2);
+
+
+                Vector3 offset = new Vector3(0, 0, -2);
                 targetPosition = targetTransform.position + offset;
                 transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.6f);
                 transform.LookAt(targetTransform);
