@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System;
 
 namespace VHVRCamera
 {
@@ -10,12 +11,24 @@ namespace VHVRCamera
         Camera followCam;
 
         private Vector3 velocity = Vector3.zero;
+        private Vector3 offset = new Vector3(0, 2, -2);
+        private static float maxRange = 4;
+
+
+        private enum cameraFollowType
+        {
+            SuperHot, 
+            VanityFollow
+        }
+        private static cameraFollowType _cameraFollowType = cameraFollowType.SuperHot;
+        private static int cameraFollowTypeLength;
 
 
         void Start()
         {
             followerCameraObject = this.gameObject;
             targetTransform = new GameObject().transform;
+            cameraFollowTypeLength = Enum.GetNames(typeof(cameraFollowType)).Length;
 
             followCam = GetComponent<Camera>();
             followCam.stereoTargetEye = StereoTargetEyeMask.None;
@@ -51,13 +64,23 @@ namespace VHVRCamera
 
                 if (followCam.enabled == true)
                 {
-                    Debug.Log("Camera is Enabled.");
+                    
+                    _cameraFollowType++;
+                    if (cameraFollowTypeLength == (int)_cameraFollowType)
+                        {
+                        _cameraFollowType = 0;
+
+                         }
+                    Debug.Log("Camera " + _cameraFollowType.ToString() + " is Enabled.");
                     Debug.Log(followerCameraObject);
 
                     if (Player.m_localPlayer != null)
                     {
-                        transform.position = Player.m_localPlayer.transform.position;
-                       // transform.position = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head).transform.position;
+                        Vector3 playerPosition = Player.m_localPlayer.transform.position;
+                        transform.position =  new Vector3(playerPosition.x, playerPosition.y + offset.y, playerPosition.z + offset.z);
+                        // transform.position = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head).transform.position;
+
+                       // transform.position = playerPosition;
                     }
                 }
 
@@ -85,19 +108,37 @@ namespace VHVRCamera
             else if (followCam.enabled)
             {
 
-                Debug.Log("Spec Position: " + transform.position);
-                Debug.Log("Target position : " + targetTransform.position);
+                float distanceFromPlayer;
+                Transform localPlayerTransform = Player.m_localPlayer.GetTransform();
+                Transform headTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
 
+                switch (_cameraFollowType) {
 
+                    case (cameraFollowType.SuperHot):
 
+                        targetTransform = localPlayerTransform;
+                        offset.y = 2;
+                        targetPosition = targetTransform.position + targetTransform.forward * offset.z + targetTransform.up * offset.y;
+                        transform.position = Vector3.Lerp(transform.position, targetPosition, 0.9f * Time.unscaledDeltaTime);
+                        // transform.position = Vector3.Lerp(transform.position, targetTransform.position + offset, 0.9f * Time.unscaledDeltaTime);
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetTransform.rotation, 50f * Time.unscaledDeltaTime);
+                        break;
 
-                Vector3 offset = new Vector3(0, 0, -2);
-                targetPosition = targetTransform.position + offset;
-                transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.6f);
-                transform.LookAt(targetTransform);
+                    case (cameraFollowType.VanityFollow):
 
-                //  transform.position = Vector3.Lerp(transform.position, targetTransform.position, 0.9f * Time.unscaledDeltaTime);
-                // transform.rotation = Quaternion.RotateTowards(transform.rotation, targetTransform.rotation, 50f * Time.unscaledDeltaTime);
+                        offset.y = 1.5f;
+                        targetTransform = localPlayerTransform;
+                        distanceFromPlayer = (transform.position - targetTransform.position).sqrMagnitude;
+                        if (distanceFromPlayer > maxRange * maxRange)
+                        {
+                            targetPosition = targetTransform.position + (targetTransform.forward * offset.z) + (targetTransform.up * offset.y);
+                            transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.9f);
+                        }
+                        
+                        transform.LookAt(headTransform);
+                        break;
+
+            }
 
             }
 
