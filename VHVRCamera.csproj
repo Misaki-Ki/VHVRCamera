@@ -25,8 +25,17 @@
   </ItemGroup>
   
   <ItemGroup>
+    <Reference Include="assembly_postprocessing">
+      <HintPath>M:\Games\Steam\steamapps\common\Valheim\valheim_Data\Managed\assembly_postprocessing.dll</HintPath>
+    </Reference>
+    <Reference Include="assembly_sunshafts">
+      <HintPath>..\..\..\.nuget\packages\valheim.gamelibs\0.202.14-r.0\lib\net40\assembly_sunshafts.dll</HintPath>
+    </Reference>
     <Reference Include="assembly_valheim">
       <HintPath>..\..\..\.nuget\packages\valheim.gamelibs\0.202.14-r.0\lib\net40\assembly_valheim.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\vhvr-mod\Unity\Build\ValheimVR_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\vhvr-mod\Unity\Build\ValheimVR_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
