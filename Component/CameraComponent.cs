@@ -82,45 +82,29 @@ namespace VHVRCamera
 
                 if (followCam.enabled == true)
                 {
+                    activeCamera();
+                }
 
-                    _cameraFollowType++;
-                    if (cameraFollowTypeLength == (int)_cameraFollowType)
-                    {
-                        _cameraFollowType = 0;
 
-                    }
-                    Debug.Log("Camera " + _cameraFollowType.ToString() + " is Enabled.");
-                    Debug.Log(followerCameraObject);
-
-                    if (Player.m_localPlayer != null)
-                    {
-                        Vector3 playerPosition = Player.m_localPlayer.transform.position;
-                        transform.position = new Vector3(playerPosition.x, playerPosition.y + offset.y, playerPosition.z + offset.z);
-                        // transform.position = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head).transform.position;
-
-                        // transform.position = playerPosition;
-                    }
-
-                    if (followCam.gameObject.GetComponent<PostProcessingBehaviour>() == null)
-                    {
-                        foreach (Camera camera in FindObjectsOfType<Camera>())
-                        {
-                            Debug.Log(camera.name);
-                            if (camera.name == "Main Camera")
-                            {
-                                maybeCopyPostProcessingEffects(followCam, camera);
-                            }
-                        }
-                    }
-
-                    else
-                    {
-                        Debug.Log("Camera is Disabled.");
-                    }
+                else
+                {
+                    Debug.Log("Camera is Disabled.");
                 }
 
 
             }
+
+            if (Input.GetKeyDown("j"))
+            {
+                _cameraFollowType++;
+
+                if (cameraFollowTypeLength == (int)_cameraFollowType)
+                {
+                    _cameraFollowType = 0;
+
+                }
+            }
+
         }
 
         void LateUpdate()
@@ -157,12 +141,13 @@ namespace VHVRCamera
                         break;
 
                     // This camera is a standard third person camera that follows the player. It'll stop it's position follow when you're within a certain range of the camera.
-                    // It seems to have issues with jittering in some situations, such as a slow moving boat that's heaving a lot. 
+                    // It seems to have issues with jittering in some situations with transform.lookat, such as a slow moving boat that's heaving a lot. 
 
                     case (cameraFollowType.VanityFollow):
                         followCam.fieldOfView = 70f;
                         offset.y = 1.5f;
                         targetTransform = localPlayerTransform;
+
                         distanceFromPlayer = (transform.position - targetTransform.position).sqrMagnitude;
                         if (distanceFromPlayer > maxRange * maxRange)
                         {
@@ -170,15 +155,42 @@ namespace VHVRCamera
                             transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.9f);
                         }
 
-                        transform.LookAt(headTransform);
-                        break;
+                        //transform.LookAt(headTransform);
+                        Vector3 directionHeadVector = headTransform.position - transform.position;
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(directionHeadVector), 70f * Time.unscaledDeltaTime);
 
+                        break;
                 }
 
             }
-
+            
         }
+       
 
+        private void activeCamera()
+        {
+            Debug.Log("Camera " + _cameraFollowType.ToString() + " is Enabled.");
+            Debug.Log(followerCameraObject);
+
+            if (Player.m_localPlayer != null)
+            {
+                Vector3 playerPosition = Player.m_localPlayer.transform.position;
+                transform.position = new Vector3(playerPosition.x, playerPosition.y + offset.y, playerPosition.z + offset.z);
+
+            }
+
+            if (followCam.gameObject.GetComponent<PostProcessingBehaviour>() == null)
+            {
+                foreach (Camera camera in FindObjectsOfType<Camera>())
+                {
+                    Debug.Log(camera.name);
+                    if (camera.name == "Main Camera")
+                    {
+                        maybeCopyPostProcessingEffects(followCam, camera);
+                    }
+                }
+            }
+        }
 
         // Shamelessly taken from <https://github.com/brandonmousseau/vhvr-mod>
         private void maybeCopyPostProcessingEffects(Camera targetCamera, Camera sourceCamera)
