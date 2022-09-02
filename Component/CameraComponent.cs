@@ -30,6 +30,151 @@ namespace VHVRCamera
 
         void Start()
         {
+            InitalizeCamera();
+        }
+
+
+
+
+        void Update()
+        {
+
+            if (Input.GetKeyDown("h"))
+            {
+                followCam.enabled = !followCam.enabled;
+
+                if (followCam.enabled == true)
+                {
+                    ActiveCamera();
+                }
+
+
+                else
+                {
+                    Debug.Log("Camera is Disabled.");
+                }
+
+
+            }
+
+            if (Input.GetKeyDown("j") & followCam.enabled)
+            {
+                _cameraFollowType++;
+
+                if (cameraFollowTypeLength == (int)_cameraFollowType)
+                {
+                    _cameraFollowType = 0;
+
+                }
+
+
+                String currentCam = _cameraFollowType.ToString();
+                Debug.Log(string.Format("Camera set to {0}", currentCam));
+            }
+
+        }
+
+        void LateUpdate()
+        {
+
+            if (followCam.enabled)
+            {
+
+                if (targetTransform == null && Player.m_localPlayer != null)
+                {
+                        targetTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
+                }
+
+                Transform localPlayerTransform = Player.m_localPlayer.GetTransform();
+
+                switch (_cameraFollowType)
+                {
+
+ 
+                    case (cameraFollowType.SuperHot):
+                        ActionCamera(localPlayerTransform, 100f, 2f, -2f);
+                        break;
+
+
+                    case (cameraFollowType.VanityFollow):
+                       
+
+                        if (Player.m_localPlayer.IsAttachedToShip())
+                        {
+                            // Vector3 playerVelocity = Player.m_localPlayer.GetVelocity();
+                            ActionCamera(localPlayerTransform, 100f, 3f, -3f);
+                        }
+
+
+                        else
+                        {
+                            // Character.GetCharactersInRange(localPlayerTransform, )
+                            CameraCloseFollow(localPlayerTransform, 70f);
+                        }
+                        break;
+                }
+
+            }
+
+        }
+
+
+        // The camera used in Super Hot's Spectator Camera. I reduced the FOV slightly, since it was absurdly high for Valheim. 
+        // This one doesn't look good in bases, but it's great for sailing and action.
+
+        private void ActionCamera(Transform targetTransform, float fieldOfView, float yOffset, float zOffset)
+        {
+            Vector3 targetPosition;
+
+            followCam.fieldOfView = fieldOfView;
+            targetPosition = targetTransform.position + targetTransform.forward * zOffset + targetTransform.up * yOffset;
+            transform.position = Vector3.Lerp(transform.position, targetPosition, 0.9f * Time.unscaledDeltaTime);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetTransform.rotation, 50f * Time.unscaledDeltaTime);
+
+        }
+
+        private void ActionCamera(Transform targetTransform, float fieldOfView, float yOffset)
+        {
+            ActionCamera(targetTransform, fieldOfView, yOffset, 0f);
+        }
+
+
+
+        // This camera is a standard third person camera that follows the player. It'll stop it's position follow when you're within a certain range of the camera.
+        // It seems to have issues with jittering in some situations with transform.lookat, such as a slow moving boat that's heaving a lot. 
+
+        private void CameraCloseFollow(Transform targetTransform, float fieldOfView, float yOffset, float zOffset)
+        {
+            followCam.fieldOfView = fieldOfView;
+            float distanceFromPlayer;
+            Vector3 targetPosition;
+            Transform headTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
+
+            distanceFromPlayer = (transform.position - targetTransform.position).sqrMagnitude;
+            if (distanceFromPlayer > maxRange * maxRange)
+            {
+                targetPosition = targetTransform.position + (targetTransform.forward * zOffset) + (targetTransform.up * yOffset);
+                transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.7f);
+            }
+
+            //transform.LookAt(headTransform);
+            Vector3 directionHeadVector = headTransform.position - transform.position;
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(directionHeadVector), 70f * Time.unscaledDeltaTime);
+        }
+
+        private void CameraCloseFollow(Transform targetTransform, float fieldOfView, float yOffset)
+        {
+            CameraCloseFollow(targetTransform, fieldOfView, yOffset, -2f);
+        }
+
+        private void CameraCloseFollow(Transform targetTransform, float fieldOfView)
+        {
+            CameraCloseFollow(targetTransform, fieldOfView, 1.5f, -2f);
+        }
+
+
+        private void InitalizeCamera()
+        {
             followerCameraObject = this.gameObject;
             targetTransform = new GameObject().transform;
             cameraFollowTypeLength = Enum.GetNames(typeof(cameraFollowType)).Length;
@@ -66,108 +211,9 @@ namespace VHVRCamera
                 }
 
             }
-
         }
 
-
-
-
-        void Update()
-        {
-
-            if (Input.GetKeyDown("h"))
-            {
-                Debug.Log("Key H Press");
-                followCam.enabled = !followCam.enabled;
-
-                if (followCam.enabled == true)
-                {
-                    activeCamera();
-                }
-
-
-                else
-                {
-                    Debug.Log("Camera is Disabled.");
-                }
-
-
-            }
-
-            if (Input.GetKeyDown("j"))
-            {
-                _cameraFollowType++;
-
-                if (cameraFollowTypeLength == (int)_cameraFollowType)
-                {
-                    _cameraFollowType = 0;
-
-                }
-            }
-
-        }
-
-        void LateUpdate()
-        {
-            Vector3 targetPosition;
-            if (targetTransform == null)
-            {
-                if (Player.m_localPlayer != null)
-                {
-                    targetTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
-                }
-
-            }
-
-            else if (followCam.enabled)
-            {
-
-                float distanceFromPlayer;
-                Transform localPlayerTransform = Player.m_localPlayer.GetTransform();
-                Transform headTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
-
-                switch (_cameraFollowType)
-                {
-
-                    // The camera used in Super Hot's Spectator Camera. I reduced the FOV slightly, since it was absurdly high for Valheim. 
-                    // This one doesn't look good in bases, but it's great for sailing and action. 
-                    case (cameraFollowType.SuperHot):
-                        followCam.fieldOfView = 100f;
-                        targetTransform = localPlayerTransform;
-                        offset.y = 2;
-                        targetPosition = targetTransform.position + targetTransform.forward * offset.z + targetTransform.up * offset.y;
-                        transform.position = Vector3.Lerp(transform.position, targetPosition, 0.9f * Time.unscaledDeltaTime);
-                        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetTransform.rotation, 50f * Time.unscaledDeltaTime);
-                        break;
-
-                    // This camera is a standard third person camera that follows the player. It'll stop it's position follow when you're within a certain range of the camera.
-                    // It seems to have issues with jittering in some situations with transform.lookat, such as a slow moving boat that's heaving a lot. 
-
-                    case (cameraFollowType.VanityFollow):
-                        followCam.fieldOfView = 70f;
-                        offset.y = 1.5f;
-                        targetTransform = localPlayerTransform;
-
-                        distanceFromPlayer = (transform.position - targetTransform.position).sqrMagnitude;
-                        if (distanceFromPlayer > maxRange * maxRange)
-                        {
-                            targetPosition = targetTransform.position + (targetTransform.forward * offset.z) + (targetTransform.up * offset.y);
-                            transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.9f);
-                        }
-
-                        //transform.LookAt(headTransform);
-                        Vector3 directionHeadVector = headTransform.position - transform.position;
-                        transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(directionHeadVector), 70f * Time.unscaledDeltaTime);
-
-                        break;
-                }
-
-            }
-            
-        }
-       
-
-        private void activeCamera()
+        private void ActiveCamera()
         {
             Debug.Log("Camera " + _cameraFollowType.ToString() + " is Enabled.");
             Debug.Log(followerCameraObject);
