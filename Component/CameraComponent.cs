@@ -11,8 +11,8 @@ namespace VHVRCamera
     public class CameraComponent : MonoBehaviour
     {
         GameObject followerCameraObject;
-        Transform targetTransform;
         Camera followCam;
+        Transform vrCameraTransform;
 
         private Vector3 velocity = Vector3.zero;
         private Vector3 offset = new Vector3(0, 2, -2);
@@ -22,7 +22,8 @@ namespace VHVRCamera
         private enum cameraFollowType
         {
             SuperHot,
-            VanityFollow
+            VanityFollow,
+            StabilizedFPV
         }
         private static cameraFollowType _cameraFollowType = cameraFollowType.SuperHot;
         private static int cameraFollowTypeLength;
@@ -77,28 +78,25 @@ namespace VHVRCamera
         void LateUpdate()
         {
 
-            if (followCam.enabled)
+            if (followCam.enabled && Player.m_localPlayer != null)
             {
 
-                if (targetTransform == null && Player.m_localPlayer != null)
-                {
-                        targetTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
-                }
 
+                Transform HeadtargetTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
                 Transform localPlayerTransform = Player.m_localPlayer.GetTransform();
+          
 
                 switch (_cameraFollowType)
                 {
 
- 
+
                     case (cameraFollowType.SuperHot):
                         ActionCamera(localPlayerTransform, 100f, 2f, -2f);
                         break;
 
 
-                    case (cameraFollowType.VanityFollow):
-                       
 
+                    case (cameraFollowType.VanityFollow):
                         if (Player.m_localPlayer.IsAttachedToShip())
                         {
                             // Vector3 playerVelocity = Player.m_localPlayer.GetVelocity();
@@ -111,6 +109,31 @@ namespace VHVRCamera
                             // Character.GetCharactersInRange(localPlayerTransform, )
                             CameraCloseFollow(localPlayerTransform, 70f);
                         }
+                        break;
+
+
+
+                    case (cameraFollowType.StabilizedFPV):
+                        if (vrCameraTransform == null)
+                        {
+                            vrCameraTransform = HeadtargetTransform;
+
+                            foreach (Camera camera in FindObjectsOfType<Camera>())
+                            {
+                                if (camera.name == "VRCamera")
+                                {
+                                    Debug.Log("VRCamera Found");
+                                    vrCameraTransform = camera.transform;
+                                    Debug.Log("vrCameraTransform: "+ vrCameraTransform);
+                                }
+
+                               
+                            }
+                        }
+
+                      
+                       CameraStabilizedFPV(vrCameraTransform, 60f);
+                        
                         break;
                 }
 
@@ -173,10 +196,39 @@ namespace VHVRCamera
         }
 
 
+        // A smoother FPV camera. VR footage is pretty terrible to look at unless it's stabalized. 
+        // Taken from <https://github.com/Wyattari/VRSmoothCamUnity/blob/main/VRSmoothCamUnityProject/Assets/VRSmoothCam/Scripts/SmoothCamMethods.cs>.
+
+        private void CameraStabilizedFPV(Transform targetTransform, float fieldOfView, float positionDampening, float rotationDampening)
+        {
+            var velocity = Vector3.zero;
+            transform.position = Vector3.SmoothDamp(transform.position, targetTransform.position, ref velocity, positionDampening);
+
+            float angularVelocity = 0f;
+            float delta = Quaternion.Angle(transform.rotation, targetTransform.rotation);
+            if (delta > 0f)
+            {
+                float t = Mathf.SmoothDampAngle(delta, 0.0f, ref angularVelocity, rotationDampening);
+                t = 1.0f - (t / delta);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetTransform.rotation, t);
+            }
+
+            /*
+            if (settings.lockCameraRoll) // broken when looking up and down
+            {
+                float lockZ = 0f;
+                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, lockZ);
+            }*/
+        }
+
+        private void CameraStabilizedFPV(Transform targetTransform, float fieldOfView)
+        {
+            CameraStabilizedFPV(targetTransform, fieldOfView, 0.05f, 0.05f);
+        }
+
         private void InitalizeCamera()
         {
             followerCameraObject = this.gameObject;
-            targetTransform = new GameObject().transform;
             cameraFollowTypeLength = Enum.GetNames(typeof(cameraFollowType)).Length;
 
             followCam = GetComponent<Camera>();
