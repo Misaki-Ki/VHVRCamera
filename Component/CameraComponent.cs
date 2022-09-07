@@ -132,7 +132,7 @@ namespace VHVRCamera
                         }
 
                       
-                       CameraStabilizedFPV(vrCameraTransform, 60f);
+                       CameraStabilizedFPV(vrCameraTransform, 60f, false, 0.18f, 0.01f, 0.08f);
                         
                         break;
                 }
@@ -166,15 +166,16 @@ namespace VHVRCamera
         // This camera is a standard third person camera that follows the player. It'll stop it's position follow when you're within a certain range of the camera.
         // It seems to have issues with jittering in some situations with transform.lookat, such as a slow moving boat that's heaving a lot. 
 
-        private void CameraCloseFollow(Transform targetTransform, float fieldOfView, float yOffset, float zOffset)
+        private void CameraCloseFollow(Transform targetTransform, float fieldOfView, float yOffset, float zOffset, bool closeFollowStopWhenClose)
         {
             followCam.fieldOfView = fieldOfView;
+            followCam.nearClipPlane = 0.01f;
             float distanceFromPlayer;
             Vector3 targetPosition;
             Transform headTransform = Player.m_localPlayer.m_animator.GetBoneTransform(HumanBodyBones.Head);
 
             distanceFromPlayer = (transform.position - targetTransform.position).sqrMagnitude;
-            if (distanceFromPlayer > maxRange * maxRange)
+            if (closeFollowStopWhenClose == false || distanceFromPlayer > maxRange * maxRange)
             {
                 targetPosition = targetTransform.position + (targetTransform.forward * zOffset) + (targetTransform.up * yOffset);
                 transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref velocity, 0.7f);
@@ -187,22 +188,24 @@ namespace VHVRCamera
 
         private void CameraCloseFollow(Transform targetTransform, float fieldOfView, float yOffset)
         {
-            CameraCloseFollow(targetTransform, fieldOfView, yOffset, -2f);
+            CameraCloseFollow(targetTransform, fieldOfView, yOffset, -2f, true);
         }
 
         private void CameraCloseFollow(Transform targetTransform, float fieldOfView)
         {
-            CameraCloseFollow(targetTransform, fieldOfView, 1.5f, -2f);
+            CameraCloseFollow(targetTransform, fieldOfView, 1.5f, -2f, true);
         }
 
 
         // A smoother FPV camera. VR footage is pretty terrible to look at unless it's stabalized. 
-        // Taken from <https://github.com/Wyattari/VRSmoothCamUnity/blob/main/VRSmoothCamUnityProject/Assets/VRSmoothCam/Scripts/SmoothCamMethods.cs>.
+        // Taken from <https://github.com/Wyattari/VRSmoothCamUnity/blob/main/VRSmoothCamUnityProject/Assets/VRSmoothCam/Scripts/SmoothCamMethods.cs>. 
+        // Dampening from 0 to 0.1f
 
-        private void CameraStabilizedFPV(Transform targetTransform, float fieldOfView, float positionDampening, float rotationDampening)
+        private void CameraStabilizedFPV(Transform targetTransform, float fieldOfView, bool lockRotation, float zOffset, float positionDampening, float rotationDampening)
         {
+            followCam.nearClipPlane = 0.16f;
             var velocity = Vector3.zero;
-            transform.position = Vector3.SmoothDamp(transform.position, targetTransform.position, ref velocity, positionDampening);
+            transform.position = Vector3.SmoothDamp(transform.position, targetTransform.position + targetTransform.forward * zOffset, ref velocity, positionDampening);
 
             float angularVelocity = 0f;
             float delta = Quaternion.Angle(transform.rotation, targetTransform.rotation);
@@ -210,20 +213,44 @@ namespace VHVRCamera
             {
                 float t = Mathf.SmoothDampAngle(delta, 0.0f, ref angularVelocity, rotationDampening);
                 t = 1.0f - (t / delta);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetTransform.rotation, t);
+
+
+               
+                if (lockRotation) // Broken, still working on it.
+                {
+                    /*
+                    float rollCorrectionSpeed = 1f;
+
+                   
+                    float roll = Vector3.Dot(transform.right, Vector3.up);  
+                    transform.Rotate(0, 0, -roll * rollCorrectionSpeed);
+
+                    Vector3 directionVector = targetTransform.position - transform.position;
+                    Quaternion lookRotation = Quaternion.LookRotation(directionVector);
+                    transform.rotation = Quaternion.RotateTowards(transform.rotation, targetTransform.rotation, (rotationDampening * 1000) * Time.deltaTime);
+                    */
+
+                    transform.rotation = Quaternion.LookRotation(targetTransform.forward);
+                    // broken when looking up and down
+                    //float lockZ = 0f;
+                    // transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, lockZ);
+
+
+                }
+
+                else
+                {
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetTransform.rotation, t);
+                }
             }
 
-            /*
-            if (settings.lockCameraRoll) // broken when looking up and down
-            {
-                float lockZ = 0f;
-                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, lockZ);
-            }*/
+            
+
         }
 
         private void CameraStabilizedFPV(Transform targetTransform, float fieldOfView)
         {
-            CameraStabilizedFPV(targetTransform, fieldOfView, 0.05f, 0.05f);
+            CameraStabilizedFPV(targetTransform, fieldOfView, false, 0f, 0.05f, 0.05f);
         }
 
         private void InitalizeCamera()
@@ -246,6 +273,7 @@ namespace VHVRCamera
                 {
                     Debug.Log("Main Camera Found");
 
+                    followCam.nearClipPlane = camera.nearClipPlane;
                     followCam.farClipPlane = camera.farClipPlane;
                     followCam.clearFlags = camera.clearFlags;
                     followCam.renderingPath = camera.renderingPath;
@@ -258,6 +286,7 @@ namespace VHVRCamera
                     followCam.allowHDR = true;
                     followCam.backgroundColor = camera.backgroundColor;
 
+                    Debug.Log("Near Plane Clip: " + camera.nearClipPlane);
 
 
                 }
@@ -316,7 +345,7 @@ namespace VHVRCamera
                     //Need to copy only the profile and jitterFuncMatrix, everything else will be instanciated when enabled
                     postProcessingBehavior.profile = profileClone;
                     postProcessingBehavior.jitteredMatrixFunc = ppb.jitteredMatrixFunc;
-                    if (ppb.enabled) ppb.enabled = false;
+                    // if (ppb.enabled) ppb.enabled = false;
                 }
             }
             if (!foundMainCameraPostProcesor)
