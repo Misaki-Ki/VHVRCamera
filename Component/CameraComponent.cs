@@ -95,7 +95,7 @@ namespace VHVRCamera
                         break;
 
 
-
+                        //
                     case (cameraFollowType.VanityFollow):
                         if (Player.m_localPlayer.IsAttachedToShip())
                         {
